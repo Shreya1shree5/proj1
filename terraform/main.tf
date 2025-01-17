@@ -15,32 +15,20 @@ terraform {
   }
 }
 
-# GCS bucket for Terraform state (equivalent to S3)
-resource "google_storage_bucket" "terraform_state" {
-  name          = "gab-terraform-state-${terraform.workspace}"
-  location      = var.region
-  force_destroy = false
-  
-  versioning {
-    enabled = true
-  }
-}
-
-# VPC Network (equivalent to AWS VPC)
+# VPC Network
 resource "google_compute_network" "main" {
   name                    = "vpc-${terraform.workspace}"
   auto_create_subnetworks = false
 }
 
-# Subnets (equivalent to AWS Subnets)
+# Subnets
 resource "google_compute_subnetwork" "main" {
-  count         = 2
+  count         = 1  # Reduced to 1 subnet since we're using a single zone
   name          = "subnet-${count.index}-${terraform.workspace}"
   ip_cidr_range = cidrsubnet(var.vpc_cidr_block, 8, count.index)
   network       = google_compute_network.main.id
   region        = var.region
 
-  # Enable private Google access
   private_ip_google_access = true
 }
 
@@ -51,7 +39,7 @@ resource "google_compute_router" "router" {
   region  = var.region
 }
 
-# Cloud NAT (equivalent to Internet Gateway)
+# Cloud NAT
 resource "google_compute_router_nat" "nat" {
   name                               = "nat-${terraform.workspace}"
   router                            = google_compute_router.router.name
@@ -60,45 +48,7 @@ resource "google_compute_router_nat" "nat" {
   source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
 }
 
-# GKE Cluster (equivalent to EKS)
-resource "google_container_cluster" "primary" {
-  name     = "gke-cluster-${terraform.workspace}"
-  location = var.region
-
-  # We can't create a cluster with no node pool defined, but we want to only use
-  # separately managed node pools. So we create the smallest possible default
-  # node pool and immediately delete it.
-  remove_default_node_pool = true
-  initial_node_count       = 1
-
-  network    = google_compute_network.main.self_link
-  subnetwork = google_compute_subnetwork.main[0].self_link
-
-  # IP allocation policy for VPC-native cluster
-  ip_allocation_policy {
-    cluster_ipv4_cidr_block  = "/16"
-    services_ipv4_cidr_block = "/22"
-  }
-}
-
-# GKE Node Pool (equivalent to EKS Node Group)
-resource "google_container_node_pool" "primary_nodes" {
-  name       = "node-pool-${terraform.workspace}"
-  location   = var.region
-  cluster    = google_container_cluster.primary.name
-  node_count = 1
-
-  node_config {
-    machine_type = "e2-medium"  # equivalent to t2.medium
-    
-    # Google recommends custom service accounts that have cloud-platform scope and permissions granted via IAM Roles.
-    oauth_scopes = [
-      "https://www.googleapis.com/auth/cloud-platform"
-    ]
-  }
-}
-
-# Firewall Rules (equivalent to Security Groups)
+# Firewall Rules
 resource "google_compute_firewall" "allow_internal" {
   name    = "allow-internal-${terraform.workspace}"
   network = google_compute_network.main.name
@@ -132,22 +82,24 @@ resource "google_compute_firewall" "allow_external" {
   source_ranges = ["0.0.0.0/0"]
 }
 
-# Artifact Registry (equivalent to ECR)
+# Artifact Registry
 resource "google_artifact_registry_repository" "app_repo" {
   location      = var.region
   repository_id = "gabapprepo${terraform.workspace}"
   format        = "DOCKER"
 }
 
-# Compute Instance (equivalent to EC2)
+# Compute Instance
 resource "google_compute_instance" "ubuntu_instance" {
   name         = "gab-instance-${terraform.workspace}"
-  machine_type = "e2-micro"  # equivalent to t2.micro
-  zone         = "${var.region}-a"
+  machine_type = "e2-micro"  # Free tier eligible
+  zone         = var.zone    # Using specific zone instead of region
 
   boot_disk {
     initialize_params {
-      image = "ubuntu-os-cloud/ubuntu-2004-lts"  # Ubuntu 20.04 LTS
+      image = "ubuntu-os-cloud/ubuntu-2004-lts"
+      size  = var.disk_size_gb
+      type  = var.disk_type
     }
   }
 
@@ -161,4 +113,69 @@ resource "google_compute_instance" "ubuntu_instance" {
   }
 
   tags = ["gab-instance", terraform.workspace]
+
+  lifecycle {
+    prevent_destroy = false
+  }
+}
+
+# GKE Cluster - Zonal
+resource "google_container_cluster" "primary" {
+  name     = "gke-cluster-${terraform.workspace}"
+  location = var.zone  # Changed to zone for zonal cluster
+
+  remove_default_node_pool = true
+  initial_node_count       = 1
+
+  network    = google_compute_network.main.self_link
+  subnetwork = google_compute_subnetwork.main[0].self_link
+
+  ip_allocation_policy {
+    cluster_ipv4_cidr_block  = "/16"
+    services_ipv4_cidr_block = "/22"
+  }
+
+  min_master_version = "latest"
+
+  workload_identity_config {
+    workload_pool = "${var.project_id}.svc.id.goog"
+  }
+
+  master_authorized_networks_config {
+    cidr_blocks {
+      cidr_block   = "0.0.0.0/0"
+      display_name = "All"
+    }
+  }
+}
+
+# GKE Node Pool - Zonal
+resource "google_container_node_pool" "primary_nodes" {
+  name       = "node-pool-${terraform.workspace}"
+  location   = var.zone
+  cluster    = google_container_cluster.primary.name
+  node_count = var.gke_num_nodes
+
+  node_config {
+    machine_type = var.machine_type
+
+    oauth_scopes = [
+      "https://www.googleapis.com/auth/cloud-platform"
+    ]
+
+    workload_metadata_config {
+      mode = "GKE_METADATA"
+    }
+
+    labels = {
+      env = terraform.workspace
+    }
+
+    tags = ["gke-node", "${var.project_id}-gke"]
+  }
+
+  management {
+    auto_repair  = true
+    auto_upgrade = true
+  }
 }
