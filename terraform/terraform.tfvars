@@ -1,6 +1,7 @@
 # Project and region
 project_id = "solid-altar-444910-c9"
-region     = "europe-west2"
+region     = "us-central1"
+zone       = "us-central1-a"
 
 # Network configuration
 vpc_cidr_block = "10.0.0.0/16"
