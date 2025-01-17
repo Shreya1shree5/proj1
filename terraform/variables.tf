@@ -7,7 +7,13 @@ variable "project_id" {
 variable "region" {
   description = "The GCP region to deploy resources"
   type        = string
-  default     = "europe-west2"
+  default     = "us-central1"
+}
+
+variable "zone" {
+  description = "The GCP zone for zonal cluster"
+  type        = string
+  default     = "us-central1-a"  # Specific zone for the cluster
 }
 
 # Network variables
@@ -15,17 +21,6 @@ variable "vpc_cidr_block" {
   description = "The CIDR block for the VPC"
   type        = string
   default     = "10.0.0.0/16"
-}
-
-# SSH Key variables
-variable "ssh_key_name" {
-  description = "The name of the SSH key pair"
-  type        = string
-}
-
-variable "ssh_public_key_path" {
-  description = "The path to the SSH public key"
-  type        = string
 }
 
 # GKE variables
@@ -39,4 +34,16 @@ variable "machine_type" {
   description = "Machine type for GKE nodes"
   type        = string
   default     = "e2-medium"
+}
+
+variable "disk_size_gb" {
+  description = "Boot disk size in GB"
+  type        = number
+  default     = 10  # Free tier friendly size
+}
+
+variable "disk_type" {
+  description = "Boot disk type"
+  type        = string
+  default     = "pd-standard"  # Standard persistent disk for free tier
 }
