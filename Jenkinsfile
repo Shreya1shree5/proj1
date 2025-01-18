@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         PYTHON_VERSION = '3.x'
-        GCP_PROJECT_ID = credentials('GCP_PROJECT_ID')
+        GCP_PROJECT_ID = credentials('solid-altar-444910-c9')
         GCP_CREDENTIALS = credentials('GCP_SA_KEY')
         GCP_REGION = credentials('GCP_REGION')
         GKE_CLUSTER_NAME = credentials('GKE_CLUSTER_NAME')
