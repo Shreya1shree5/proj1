@@ -7,6 +7,7 @@ pipeline {
         GKE_CLUSTER_NAME = 'cluster-1'
         LOCATION = 'gke-cluster-dev'
         GCP_CREDENTIALS = 'kubernetes
+        GCR_HOSTNAME = 'gcr.io'
         TERRAFORM_DIR = 'terraform'  // Directory containing Terraform files
     }
 
