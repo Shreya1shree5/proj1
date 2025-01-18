@@ -3,11 +3,10 @@ pipeline {
 
     environment {
         PYTHON_VERSION = '3.x'
-        GCP_PROJECT_ID = credentials('solid-altar-444910-c9')
-        GCP_CREDENTIALS = credentials('GCP_SA_KEY')
-        GCP_REGION = credentials('GCP_REGION')
-        GKE_CLUSTER_NAME = credentials('GKE_CLUSTER_NAME')
-        GCR_HOSTNAME = 'gcr.io'
+        PROJECT_ID = 'solid-altar-444910-c9'
+        GKE_CLUSTER_NAME = 'cluster-1'
+        LOCATION = 'gke-cluster-dev'
+        GCP_CREDENTIALS = 'kubernetes
         TERRAFORM_DIR = 'terraform'  // Directory containing Terraform files
     }
 
@@ -91,14 +90,14 @@ pipeline {
                     sh '''
                         echo "${GCP_CREDENTIALS}" > ${WORKSPACE}/gcp-key.json
                         gcloud auth activate-service-account --key-file=${WORKSPACE}/gcp-key.json
-                        gcloud config set project ${GCP_PROJECT_ID}
+                        gcloud config set project ${PROJECT_ID}
                         gcloud auth configure-docker ${GCR_HOSTNAME}
                     '''
 
                     // Build and push Docker image
                     sh """
-                        docker build -t ${GCR_HOSTNAME}/${GCP_PROJECT_ID}/flask-app:latest .
-                        docker push ${GCR_HOSTNAME}/${GCP_PROJECT_ID}/flask-app:latest
+                        docker build -t ${GCR_HOSTNAME}/${PROJECT_ID}/flask-app:latest .
+                        docker push ${GCR_HOSTNAME}/${PROJECT_ID}/flask-app:latest
                     """
                 }
             }
@@ -108,7 +107,7 @@ pipeline {
             steps {
                 sh '''
                     # Configure kubectl
-                    gcloud container clusters get-credentials ${GKE_CLUSTER_NAME} --region ${GCP_REGION} --project ${GCP_PROJECT_ID}
+                    gcloud container clusters get-credentials ${GKE_CLUSTER_NAME} --region ${LOCATION} --project ${PROJECT_ID}
                     
                     # Apply Kubernetes configurations
                     kubectl apply -f ./kubernetes/deployment.yaml
