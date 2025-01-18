@@ -17,14 +17,14 @@ terraform {
 
 # VPC Network
 resource "google_compute_network" "main" {
-  name                    = "vpc-${terraform.workspace}"
+  name                    = "vpc-one"
   auto_create_subnetworks = false
 }
 
 # Subnets
 resource "google_compute_subnetwork" "main" {
   count         = 1  # Reduced to 1 subnet since we're using a single zone
-  name          = "subnet-${count.index}-${terraform.workspace}"
+  name          = "subnet-${count.index}-one"
   ip_cidr_range = cidrsubnet(var.vpc_cidr_block, 8, count.index)
   network       = google_compute_network.main.id
   region        = var.region
@@ -34,14 +34,14 @@ resource "google_compute_subnetwork" "main" {
 
 # Cloud Router for NAT Gateway
 resource "google_compute_router" "router" {
-  name    = "router-${terraform.workspace}"
+  name    = "router-one"
   network = google_compute_network.main.id
   region  = var.region
 }
 
 # Cloud NAT
 resource "google_compute_router_nat" "nat" {
-  name                               = "nat-${terraform.workspace}"
+  name                               = "nat-one"
   router                            = google_compute_router.router.name
   region                            = var.region
   nat_ip_allocate_option            = "AUTO_ONLY"
@@ -50,7 +50,7 @@ resource "google_compute_router_nat" "nat" {
 
 # Firewall Rules
 resource "google_compute_firewall" "allow_internal" {
-  name    = "allow-internal-${terraform.workspace}"
+  name    = "allow-internal-one"
   network = google_compute_network.main.name
 
   allow {
@@ -71,7 +71,7 @@ resource "google_compute_firewall" "allow_internal" {
 }
 
 resource "google_compute_firewall" "allow_external" {
-  name    = "allow-external-${terraform.workspace}"
+  name    = "allow-external-one"
   network = google_compute_network.main.name
 
   allow {
@@ -85,13 +85,13 @@ resource "google_compute_firewall" "allow_external" {
 # Artifact Registry
 resource "google_artifact_registry_repository" "app_repo" {
   location      = var.region
-  repository_id = "gabapprepo${terraform.workspace}"
+  repository_id = "gabapprepoone"
   format        = "DOCKER"
 }
 
 # Compute Instance
 resource "google_compute_instance" "ubuntu_instance" {
-  name         = "gab-instance-${terraform.workspace}"
+  name         = "gab-instance-one"
   machine_type = "e2-micro"  # Free tier eligible
   zone         = var.zone    # Using specific zone instead of region
 
@@ -121,7 +121,7 @@ resource "google_compute_instance" "ubuntu_instance" {
 
 # GKE Cluster - Zonal
 resource "google_container_cluster" "primary" {
-  name     = "gke-cluster-${terraform.workspace}"
+  name     = "gke-cluster-one"
   location = var.zone  # Changed to zone for zonal cluster
 
   remove_default_node_pool = true
@@ -151,7 +151,7 @@ resource "google_container_cluster" "primary" {
 
 # GKE Node Pool - Zonal
 resource "google_container_node_pool" "primary_nodes" {
-  name       = "node-pool-${terraform.workspace}"
+  name       = "node-pool-one"
   location   = var.zone
   cluster    = google_container_cluster.primary.name
   node_count = var.gke_num_nodes
