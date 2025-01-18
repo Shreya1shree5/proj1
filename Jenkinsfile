@@ -8,6 +8,7 @@ pipeline {
         GCP_REGION = credentials('GCP_REGION')
         GKE_CLUSTER_NAME = credentials('GKE_CLUSTER_NAME')
         GCR_HOSTNAME = 'gcr.io'
+        TERRAFORM_DIR = 'terraform'  // Directory containing Terraform files
     }
 
     stages {
@@ -37,6 +38,49 @@ pipeline {
                     bandit -r . --exclude venv || true
                     safety check
                 '''
+            }
+        }
+
+        stage('Terraform Init') {
+            steps {
+                dir(TERRAFORM_DIR) {
+                    script {
+                        // Write GCP credentials to a file for Terraform
+                        sh '''
+                            echo "${GCP_CREDENTIALS}" > credentials.json
+                            export GOOGLE_APPLICATION_CREDENTIALS="credentials.json"
+                        '''
+                        
+                        // Initialize Terraform
+                        sh 'terraform init'
+                    }
+                }
+            }
+        }
+
+        stage('Terraform Plan') {
+            steps {
+                dir(TERRAFORM_DIR) {
+                    script {
+                        sh '''
+                            export GOOGLE_APPLICATION_CREDENTIALS="credentials.json"
+                            terraform plan -out=tfplan
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Terraform Apply') {
+            steps {
+                dir(TERRAFORM_DIR) {
+                    script {
+                        sh '''
+                            export GOOGLE_APPLICATION_CREDENTIALS="credentials.json"
+                            terraform apply -auto-approve tfplan
+                        '''
+                    }
+                }
             }
         }
 
@@ -82,7 +126,10 @@ pipeline {
     post {
         always {
             cleanWs()
-            sh 'rm -f ${WORKSPACE}/gcp-key.json'
+            sh '''
+                rm -f ${WORKSPACE}/gcp-key.json
+                rm -f ${WORKSPACE}/${TERRAFORM_DIR}/credentials.json
+            '''
         }
     }
 }
