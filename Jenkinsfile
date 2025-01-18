@@ -1,14 +1,16 @@
-pipeline {
+    pipeline {
     agent any
 
     environment {
         PYTHON_VERSION = '3.x'
-        PROJECT_ID = 'solid-altar-444910-c9'
-        GKE_CLUSTER_NAME = 'cluster-1'
-        LOCATION = 'gke-cluster-dev'
-        GCP_CREDENTIALS = 'kubernetes
-        GCR_HOSTNAME = 'gcr.io'
+        GCP_PROJECT_ID = 'solid-altar-444910-c9'
+        GCP_REGION = 'us-central1-a'
+        GKE_CLUSTER_NAME = 'gke-cluster-dev'
+        ARTIFACT_REGISTRY_LOCATION = 'us-central1-a'
+        ARTIFACT_REGISTRY_REPO = 'your-docker-repo'
+        ARTIFACT_REGISTRY_HOSTNAME = "${ARTIFACT_REGISTRY_LOCATION}-docker.pkg.dev"
         TERRAFORM_DIR = 'terraform'  // Directory containing Terraform files
+        CREDENTIALS_ID = 'kubernetes'
     }
 
     stages {
@@ -43,43 +45,24 @@ pipeline {
 
         stage('Terraform Init') {
             steps {
-                dir(TERRAFORM_DIR) {
-                    script {
-                        // Write GCP credentials to a file for Terraform
-                        sh '''
-                            echo "${GCP_CREDENTIALS}" > credentials.json
-                            export GOOGLE_APPLICATION_CREDENTIALS="credentials.json"
-                        '''
-                        
-                        // Initialize Terraform
-                        sh 'terraform init'
-                    }
+                dir('terraform') {
+                    sh 'terraform init'
                 }
             }
         }
 
         stage('Terraform Plan') {
             steps {
-                dir(TERRAFORM_DIR) {
-                    script {
-                        sh '''
-                            export GOOGLE_APPLICATION_CREDENTIALS="credentials.json"
-                            terraform plan -out=tfplan
-                        '''
-                    }
+                dir('terraform') {
+                    sh 'terraform plan -out=tfplan'
                 }
             }
         }
 
         stage('Terraform Apply') {
             steps {
-                dir(TERRAFORM_DIR) {
-                    script {
-                        sh '''
-                            export GOOGLE_APPLICATION_CREDENTIALS="credentials.json"
-                            terraform apply -auto-approve tfplan
-                        '''
-                    }
+                dir('terraform') {
+                    sh 'terraform apply -auto-approve tfplan'
                 }
             }
         }
@@ -87,18 +70,15 @@ pipeline {
         stage('Build and Push Docker Image') {
             steps {
                 script {
-                    // Authenticate with GCP
-                    sh '''
-                        echo "${GCP_CREDENTIALS}" > ${WORKSPACE}/gcp-key.json
-                        gcloud auth activate-service-account --key-file=${WORKSPACE}/gcp-key.json
-                        gcloud config set project ${PROJECT_ID}
-                        gcloud auth configure-docker ${GCR_HOSTNAME}
-                    '''
-
-                    // Build and push Docker image
                     sh """
-                        docker build -t ${GCR_HOSTNAME}/${PROJECT_ID}/flask-app:latest .
-                        docker push ${GCR_HOSTNAME}/${PROJECT_ID}/flask-app:latest
+                        # Configure Docker for Artifact Registry
+                        gcloud auth configure-docker ${ARTIFACT_REGISTRY_LOCATION}-docker.pkg.dev --quiet
+                        
+                        # Build Docker image
+                        docker build -t ${ARTIFACT_REGISTRY_HOSTNAME}/${GCP_PROJECT_ID}/${ARTIFACT_REGISTRY_REPO}/flask-app:latest .
+                        
+                        # Push to Artifact Registry
+                        docker push ${ARTIFACT_REGISTRY_HOSTNAME}/${GCP_PROJECT_ID}/${ARTIFACT_REGISTRY_REPO}/flask-app:latest
                     """
                 }
             }
@@ -107,14 +87,14 @@ pipeline {
         stage('Deploy to GKE') {
             steps {
                 sh '''
-                    # Configure kubectl
-                    gcloud container clusters get-credentials ${GKE_CLUSTER_NAME} --region ${LOCATION} --project ${PROJECT_ID}
+                    # Get GKE credentials
+                    gcloud container clusters get-credentials ${GKE_CLUSTER_NAME} --region ${GCP_REGION} --project ${GCP_PROJECT_ID}
                     
-                    # Apply Kubernetes configurations
-                    kubectl apply -f ./kubernetes/deployment.yaml
-                    kubectl apply -f ./kubernetes/service.yaml
+                    # Apply Kubernetes manifests
+                    kubectl apply -f kubernetes/deployment.yaml
+                    kubectl apply -f kubernetes/service.yaml
                     
-                    # Check deployment status
+                    # Verify deployment
                     echo "Checking deployment status..."
                     kubectl get pods
                     kubectl get svc
@@ -126,10 +106,12 @@ pipeline {
     post {
         always {
             cleanWs()
-            sh '''
-                rm -f ${WORKSPACE}/gcp-key.json
-                rm -f ${WORKSPACE}/${TERRAFORM_DIR}/credentials.json
-            '''
+        }
+        success {
+            echo 'Pipeline completed successfully!'
+        }
+        failure {
+            echo 'Pipeline failed. Please check the logs for details.'
         }
     }
 }
