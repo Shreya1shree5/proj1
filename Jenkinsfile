@@ -23,7 +23,7 @@
         stage('Setup Python Environment') {
             steps {
                 sh '''
-                    python -m venv venv
+                    python3 -m venv venv
                     . venv/bin/activate
                     pip install -r requirements.txt
                     pip install pytest flake8 bandit safety
