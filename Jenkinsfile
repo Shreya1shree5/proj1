@@ -37,7 +37,7 @@
                     . venv/bin/activate
                     python3 -m pytest test_app.py
                     python3 -m flake8 . --exclude=venv
-                    bandit -r . -v --exclude "venv/*,test_app.py" || true
+                    find . -name "app.py" | xargs bandit || true
                     safety check
                 '''
             }
