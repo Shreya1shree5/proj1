@@ -35,8 +35,8 @@
             steps {
                 sh '''
                     . venv/bin/activate
-                    python -m pytest
-                    python -m flake8 . --exclude=venv
+                    python3 -m pytest
+                    python3 -m flake8 . --exclude=venv
                     bandit -r . --exclude venv || true
                     safety check
                 '''
