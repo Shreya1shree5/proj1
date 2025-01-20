@@ -27,7 +27,7 @@
                     . venv/bin/activate
                     python3 -m pip install --upgrade pip
                     pip install -r requirements.txt
-                    pip install pytest flake8 bandit safety
+                    pip install pytest flake8 bandit "safety>=2.3.5"
                 '''
             }
         }
