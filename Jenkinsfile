@@ -53,20 +53,33 @@
         }
 
         stage('Terraform Plan') {
-            steps {
-                dir('terraform') {
-                    sh 'terraform plan -out=tfplan'
-                }
-            }
-        }
+            steps { 
+                withCredentials([file(credentialsId: 'gcp-credentials', variable: 'GOOGLE_APPLICATION_CREDENTIALS')]) {
+                    dir('terraform') {
+                         sh '''
+                               gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
+                               gcloud config set project ${GCP_PROJECT_ID}
+                               terraform plan -out=tfplan
+                         '''
+                 }
+             }
+         }
+     }
 
         stage('Terraform Apply') {
             steps {
-                dir('terraform') {
-                    sh 'terraform apply -auto-approve tfplan'
+                withCredentials([file(credentialsId: 'gcp-credentials', variable: 'GOOGLE_APPLICATION_CREDENTIALS')]) {
+                    dir('terraform') {
+                        sh '''
+                            gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
+                            gcloud config set project ${GCP_PROJECT_ID}
+                            terraform apply -auto-approve tfplan
+                        '''
                 }
             }
         }
+     }
+
 
         stage('Build and Push Docker Image') {
             steps {
