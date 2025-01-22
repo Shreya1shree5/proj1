@@ -1,7 +1,8 @@
+
     pipeline {
       agent any
       parameters {
-          booleanParam(name: 'CLEANUP', defaultValue: false, description: 'Cleanup all resources')
+          choice(name: 'ACTION', choices: ['deploy', 'cleanup'], description: 'Choose pipeline action')
       }
 
     environment {
@@ -15,8 +16,33 @@
         TERRAFORM_DIR = 'terraform'  // Directory containing Terraform files
         CREDENTIALS_ID = 'kubernetes'
     }
-
     stages {
+     stage('Pipeline Action') {
+        steps {
+            script {
+                if (params.ACTION == 'cleanup') {
+                    withCredentials([file(credentialsId: 'gcp-credentials', variable: 'GOOGLE_APPLICATION_CREDENTIALS')]) {
+                        sh '''
+                            gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
+                            gcloud config set project ${GCP_PROJECT_ID}
+                            
+                            # Delete K8s resources
+                            gcloud container clusters get-credentials ${GKE_CLUSTER_NAME} --region ${GCP_REGION}
+                            kubectl delete -f kubernetes/deployment.yaml || true
+                            kubectl delete -f kubernetes/service.yaml || true
+                            kubectl delete -f deploymenttwo.yaml || true
+                            
+                            # Destroy Terraform
+                            cd terraform
+                            terraform init
+                            terraform destroy -auto-approve
+                        '''
+                    }
+                } 
+                else
+                 {
+                    
+                
         stage('Checkout') {
             steps {
                 checkout scm
@@ -121,23 +147,10 @@
             }
         }
     
-     stage('Cleanup Resources') {
-         when {
-              expression { params.CLEANUP == true }
-         }
-         steps {
-             withCredentials([file(credentialsId: 'gcp-credentials', variable: 'GOOGLE_APPLICATION_CREDENTIALS')]) {
-                 dir('terraform') {
-                    sh '''
-                        gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
-                        gcloud config set project ${GCP_PROJECT_ID}
-                        terraform init
-                        terraform destroy -auto-approve
-                       '''
+     }
             }
         }
     }
-}
     }
     post {
         always {
@@ -150,4 +163,5 @@
             echo 'Pipeline failed. Please check the logs for details.'
         }
     }
-}
+    }
+
