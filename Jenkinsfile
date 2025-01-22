@@ -6,7 +6,7 @@
         GCP_PROJECT_ID = 'solid-altar-444910-c9'
         GCP_REGION = 'us-central1-a'
         GKE_CLUSTER_NAME = 'gke-cluster-dev'
-        ARTIFACT_REGISTRY_LOCATION = 'us-central1-a'
+        ARTIFACT_REGISTRY_LOCATION = 'us-central1'
         ARTIFACT_REGISTRY_REPO = 'your-docker-repo'
         ARTIFACT_REGISTRY_HOSTNAME = "${ARTIFACT_REGISTRY_LOCATION}-docker.pkg.dev"
         TERRAFORM_DIR = 'terraform'  // Directory containing Terraform files
