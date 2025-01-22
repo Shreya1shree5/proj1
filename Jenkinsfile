@@ -120,7 +120,7 @@
                 '''
             }
         }
-    }
+    
      stage('Cleanup Resources') {
          when {
               expression { params.CLEANUP == true }
@@ -138,6 +138,7 @@
         }
     }
 }
+    }
     post {
         always {
             cleanWs()
