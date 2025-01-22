@@ -1,5 +1,8 @@
     pipeline {
-    agent any
+      agent any
+      parameters {
+          booleanParam(name: 'CLEANUP', defaultValue: false, description: 'Cleanup all resources')
+      }
 
     environment {
         PYTHON_VERSION = '3.x'
@@ -109,7 +112,6 @@
                     # Apply Kubernetes manifests
                     kubectl apply -f kubernetes/deployment.yaml
                     kubectl apply -f kubernetes/service.yaml
-                    kubectl apply -f deploymenttwo.yaml
                     
                     # Verify deployment
                     echo "Checking deployment status..."
@@ -119,7 +121,23 @@
             }
         }
     }
-
+     stage('Cleanup Resources') {
+         when {
+              expression { params.CLEANUP == true }
+         }
+         steps {
+             withCredentials([file(credentialsId: 'gcp-credentials', variable: 'GOOGLE_APPLICATION_CREDENTIALS')]) {
+                 dir('terraform') {
+                    sh '''
+                        gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
+                        gcloud config set project ${GCP_PROJECT_ID}
+                        terraform init
+                        terraform destroy -auto-approve
+                       '''
+            }
+        }
+    }
+}
     post {
         always {
             cleanWs()
