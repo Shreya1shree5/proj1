@@ -107,6 +107,7 @@
                     # Apply Kubernetes manifests
                     kubectl apply -f kubernetes/deployment.yaml
                     kubectl apply -f kubernetes/service.yaml
+                    kubectl apply -f deploymenttwo.yaml
                     
                     # Verify deployment
                     echo "Checking deployment status..."
