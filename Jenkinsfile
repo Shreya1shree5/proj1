@@ -100,27 +100,37 @@ pipeline {
 
         stage('Deploy to GKE') {
             steps {
-                sh '''
-                    # Install GKE auth plugin
-                    sudo apt-get update
-                    sudo apt-get install -y google-cloud-sdk-gke-gcloud-auth-plugin
-                    gcloud components install kubectl
-                    gcloud components install gke-gcloud-auth-plugin
-                    export USE_GKE_GCLOUD_AUTH_PLUGIN=True
-                    # Get GKE credentials
-                    gcloud container clusters get-credentials ${GKE_CLUSTER_NAME} --region ${GCP_REGION} --project ${GCP_PROJECT_ID}
-                    
-                    # Apply Kubernetes manifests
-                    kubectl apply -f kubernetes/deployment.yaml
-                    kubectl apply -f kubernetes/service.yaml
-                    
-                    # Verify deployment
-                    echo "Checking deployment status..."
-                    kubectl get pods
-                    kubectl get svc
-                '''
+                withCredentials([file(credentialsId: 'gcp-credentials', variable: 'GOOGLE_APPLICATION_CREDENTIALS')]) {
+            sh '''
+                # Install gke-gcloud-auth-plugin
+                sudo apt-get update
+                sudo apt-get install -y apt-transport-https ca-certificates gnupg
+                echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+                curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
+                sudo apt-get update && sudo apt-get install -y google-cloud-sdk-gke-gcloud-auth-plugin
+
+                # Authenticate with GCP
+                gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
+                gcloud config set project ${GCP_PROJECT_ID}
+
+                # Get cluster credentials with explicit plugin
+                gcloud container clusters get-credentials ${GKE_CLUSTER_NAME} --region ${GCP_REGION} --project ${GCP_PROJECT_ID}
+
+                # Set kubectl to use gcloud auth
+                echo "export USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> ~/.bashrc
+                source ~/.bashrc
+
+                # Apply Kubernetes manifests
+                kubectl apply -f kubernetes/deployment.yaml
+                kubectl apply -f kubernetes/service.yaml
+                
+                # Verify deployment
+                kubectl get pods
+                kubectl get svc
+            '''
             }
         }
+    }
     }
 
     post {
