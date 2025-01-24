@@ -104,6 +104,8 @@ pipeline {
                     # Install GKE auth plugin
                     sudo apt-get update
                     sudo apt-get install -y google-cloud-sdk-gke-gcloud-auth-plugin
+                    gcloud components install gke-gcloud-auth-plugin
+                    export USE_GKE_GCLOUD_AUTH_PLUGIN=True
                     # Get GKE credentials
                     gcloud container clusters get-credentials ${GKE_CLUSTER_NAME} --region ${GCP_REGION} --project ${GCP_PROJECT_ID}
                     
