@@ -5,9 +5,9 @@ pipeline {
         PYTHON_VERSION = '3.x'
         GCP_PROJECT_ID = 'solid-altar-444910-c9'
         GCP_REGION = 'us-central1-a'
-        GKE_CLUSTER_NAME = 'gke-cluster-dev'
+        GKE_CLUSTER_NAME = 'gke-cluster-1'
         ARTIFACT_REGISTRY_LOCATION = 'us-central1'
-        ARTIFACT_REGISTRY_REPO = 'gabapprepoone'
+        ARTIFACT_REGISTRY_REPO = 'gabapprepotwo'
         ARTIFACT_REGISTRY_HOSTNAME = "${ARTIFACT_REGISTRY_LOCATION}-docker.pkg.dev"
         TERRAFORM_DIR = 'terraform'  // Directory containing Terraform files
         CREDENTIALS_ID = 'kubernetes'
