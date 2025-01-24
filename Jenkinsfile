@@ -98,6 +98,16 @@ pipeline {
             }
         }
 
+        stage('Install GKE Auth Plugin') {
+           steps {
+               sh '''
+                   sudo apt-get update
+                   sudo apt-get install -y google-cloud-sdk-gke-gcloud-auth-plugin
+                   gke-gcloud-auth-plugin
+               '''
+           }
+       }
+
         stage('Deploy to GKE') {
             steps {
                 sh '''
